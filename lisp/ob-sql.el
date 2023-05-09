@@ -60,6 +60,7 @@
 ;; - postgresql (postgres)
 ;; - oracle
 ;; - vertica
+;; - clickhouse
 ;; - saphana
 ;;
 ;; TODO:
@@ -192,6 +193,18 @@ Pass nil to omit that arg."
 			 (when database (format "-d %s" database))))
 	     " "))
 
+(defun org-babel-sql-dbstring-clickhouse (host port user password database)
+  "Make ClickHouse command line args for database connection.
+Pass nil to omit that arg."
+  (mapconcat #'identity
+             (delq nil
+	           (list (when port (format "--port %d" port))
+                         (when host (format "--host \"%s\"" host))
+	                 (when user (format "--user \"%s\"" user))
+                         (when password (format "--password \"%s\"" user))
+	                 (when database (format "--database \"%s\"" database))))
+             " "))
+
 (defun org-babel-sql-dbstring-saphana (host port instance user password database)
   "Make SAP HANA command line args for database connection.
 Pass nil to omit that arg."
@@ -307,6 +320,12 @@ footer=off -F \"\t\"  %s -f %s -o %s %s"
 				     (org-babel-process-file-name in-file)
 				     (org-babel-process-file-name out-file)
 				     (or cmdline "")))
+                    (clickhouse (format "clickhouse-client %s %s < %s > %s"
+				        (org-babel-sql-dbstring-clickhouse
+				         dbhost dbport dbuser dbpassword database)
+                                        (or cmdline "")
+				        (org-babel-process-file-name in-file)
+				        (org-babel-process-file-name out-file)))
                     (oracle (format
 			     "sqlplus -s %s < %s > %s"
 			     (org-babel-sql-dbstring-oracle
@@ -352,7 +371,7 @@ SET COLSEP '|'
 	(progn (insert-file-contents-literally out-file) (buffer-string)))
       (with-temp-buffer
 	(cond
-	 ((memq (intern engine) '(dbi mysql postgresql postgres saphana sqsh vertica))
+	 ((memq (intern engine) '(dbi mysql postgresql postgres saphana sqsh vertica clickhouse))
 	  ;; Add header row delimiter after column-names header in first line
 	  (cond
 	   (colnames-p
